@@ -2,21 +2,19 @@ import streamlit as st
 import pandas as pd
 import os
 
-# Configurações de Design Moderno
-st.set_page_config(page_title="Adriano Designer | Studio", layout="wide")
+# Configurações de Design
+st.set_page_config(page_title="Adriano Designer | Catálogo", layout="wide")
 
-# CSS para melhorar a estética dos cards
 st.markdown("""
     <style>
-    .main { background-color: #f5f5f5; }
-    .stButton>button { width: 100%; border-radius: 5px; height: 3em; background-color: #000; color: white; }
-    .stTextInput>div>div>input { border-radius: 5px; }
+    .main { background-color: #f8f9fa; }
+    .stButton>button { width: 100%; border-radius: 8px; background-color: #25D366; color: white; font-weight: bold; }
     div[data-testid="column"] {
         background-color: white;
-        padding: 15px;
-        border-radius: 10px;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        margin-bottom: 20px;
+        padding: 20px;
+        border-radius: 15px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        margin-bottom: 25px;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -27,85 +25,97 @@ if not os.path.exists("images"):
 def carregar_dados():
     if os.path.exists("produtos.csv"):
         df = pd.read_csv("produtos.csv")
+        # Garante que as novas colunas existam
+        if "descricao" not in df.columns: df["descricao"] = ""
         if "categoria" not in df.columns: df["categoria"] = "Geral"
         return df
-    return pd.DataFrame(columns=["nome", "preco", "imagens", "categoria"])
+    return pd.DataFrame(columns=["nome", "preco", "imagens", "categoria", "descricao"])
 
 # --- NAVEGAÇÃO ---
-st.sidebar.image("https://cdn-icons-png.flaticon.com/512/3050/3050222.png", width=100) # Ícone decorativo
-pagina = st.sidebar.radio("MENU", ["🛍️ Vitrine Premium", "⚙️ Painel de Controle"])
+pagina = st.sidebar.radio("MENU", ["🛍️ Vitrine de Produtos", "⚙️ Painel Admin"])
 
 # --- VITRINE ---
-if pagina == "🛍️ Vitrine Premium":
-    st.title("✨ Galeria de Conceitos")
+if pagina == "🛍️ Vitrine de Produtos":
+    st.title("👕 Catálogo de Coleções")
     df = carregar_dados()
     
     if df.empty:
-        st.info("Aguardando novas coleções...")
+        st.info("Nenhum item cadastrado.")
     else:
         categorias = ["Todas"] + sorted(df["categoria"].unique().tolist())
-        cat_selecionada = st.sidebar.selectbox("Filtrar Coleção", categorias)
+        cat_selecionada = st.sidebar.selectbox("Filtrar Categoria", categorias)
         
         df_exibicao = df if cat_selecionada == "Todas" else df[df["categoria"] == cat_selecionada]
 
         cols = st.columns(3)
         for index, row in df_exibicao.reset_index().iterrows():
             with cols[index % 3]:
-                # Lógica para Múltiplas Imagens
                 lista_fotos = str(row['imagens']).split(",")
                 
-                # Container de Imagem com Carrossel Simples (Expansor)
+                # Exibição da Imagem Principal
                 if os.path.exists(f"images/{lista_fotos[0]}"):
                     st.image(f"images/{lista_fotos[0]}", use_container_width=True)
-                    
-                    if len(lista_fotos) > 1:
-                        with st.expander("👁️ Ver mais ângulos"):
-                            for img_adicional in lista_fotos[1:]:
-                                if os.path.exists(f"images/{img_adicional}"):
-                                    st.image(f"images/{img_adicional}", use_container_width=True)
-                else:
-                    st.error("Imagem principal não encontrada")
-
-                st.markdown(f"### {row['nome']}")
-                st.markdown(f"**{row['categoria']}**")
-                st.markdown(f"<h2 style='color: #2e7d32;'>R$ {row['preco']}</h2>", unsafe_allow_html=True)
                 
-                msg = f"Olá Adriano! Gostaria de detalhes sobre: {row['nome']}"
-                st.link_button("💬 Consultar Disponibilidade", f"https://wa.me/SEUNUMERO?text={msg.replace(' ', '%20')}")
+                st.subheader(row['nome'])
+                st.caption(f"📁 {row['categoria']}")
+                
+                # Exibição da Descrição
+                if row['descricao']:
+                    st.write(row['descricao'])
+                
+                # Lógica de Preço ou Consulta
+                if row['preco'] > 0:
+                    st.markdown(f"### R$ {row['preco']:.2f}")
+                    txt_zap = f"Olá! Tenho interesse na {row['nome']}."
+                else:
+                    st.markdown("### 📞 Valor sob Consulta")
+                    txt_zap = f"Olá Adriano! Gostaria de um orçamento para a {row['nome']}."
+
+                # Link do WhatsApp (Troque pelo seu número com DDD)
+                meu_whats = "5585999999999" # COLOQUE SEU NÚMERO AQUI
+                link_whatsapp = f"https://wa.me/{meu_whats}?text={txt_zap.replace(' ', '%20')}"
+                st.link_button("Solicitar Orçamento", link_whatsapp)
+                
+                if len(lista_fotos) > 1:
+                    with st.expander("Ver mais fotos"):
+                        for img in lista_fotos[1:]:
+                            if os.path.exists(f"images/{img}"):
+                                st.image(f"images/{img}", use_container_width=True)
 
 # --- ADMIN ---
-elif pagina == "⚙️ Painel de Controle":
-    st.title("🛠️ Gestão de Ativos")
+elif pagina == "⚙️ Painel Admin":
+    st.title("🛠️ Cadastrar Novo Item")
     
-    senha = st.text_input("Chave de Acesso", type="password")
+    senha = st.text_input("Senha", type="password")
     if senha == "suasenha123":
-        with st.form("admin_form", clear_on_submit=True):
-            col1, col2 = st.columns(2)
-            nome = col1.text_input("Nome do Produto")
-            preco = col2.number_input("Preço", min_value=0.0)
+        with st.form("form_cadastro", clear_on_submit=True):
+            nome = st.text_input("Nome do Produto")
+            descricao = st.text_area("Descrição do Produto (Detalhes da malha, estampa, etc.)")
             
-            cat_fixa = st.selectbox("Categoria", ["Futebol", "Religiosa", "Business", "Streetwear"])
-            nova_cat = st.text_input("Ou crie uma nova categoria")
+            col_p, col_c = st.columns(2)
+            preco = col_p.number_input("Preço (Deixe 0 para 'Sob Consulta')", min_value=0.0)
+            categoria = col_c.selectbox("Categoria", ["Futebol", "Religiosa", "Empresarial", "Outros"])
             
-            # MULTI-UPLOAD
-            fotos = st.file_uploader("Selecione as fotos (Múltiplas)", type=["jpg", "png", "jpeg"], accept_multiple_files=True)
+            fotos = st.file_uploader("Fotos do Produto", accept_multiple_files=True)
             
-            if st.form_submit_button("Publicar Produto"):
+            if st.form_submit_button("Salvar no Catálogo"):
                 if fotos:
-                    nomes_arquivos = []
-                    for foto in fotos:
-                        nome_clean = foto.name.replace(" ", "_")
-                        with open(os.path.join("images", nome_clean), "wb") as f:
-                            f.write(foto.getbuffer())
-                        nomes_arquivos.append(nome_clean)
-                    
-                    # Salva nomes separados por vírgula
-                    string_fotos = ",".join(nomes_arquivos)
-                    cat_final = nova_cat if nova_cat else cat_fixa
+                    nomes_fotos = []
+                    for f in fotos:
+                        n = f.name.replace(" ", "_")
+                        with open(os.path.join("images", n), "wb") as arq:
+                            arq.write(f.getbuffer())
+                        nomes_fotos.append(n)
                     
                     df = carregar_dados()
-                    novo_item = pd.DataFrame([{"nome": nome, "preco": preco, "imagens": string_fotos, "categoria": cat_final}])
-                    df = pd.concat([df, novo_item], ignore_index=True)
+                    novo = pd.DataFrame([{
+                        "nome": nome, 
+                        "preco": preco, 
+                        "imagens": ",".join(nomes_fotos), 
+                        "categoria": categoria,
+                        "descricao": descricao
+                    }])
+                    df = pd.concat([df, novo], ignore_index=True)
                     df.to_csv("produtos.csv", index=False)
-                    st.success("Produto publicado com sucesso!")
+                    st.success("Produto cadastrado!")
                     st.rerun()
