@@ -103,7 +103,7 @@ if pagina == "🔥 Vitrine de Lançamentos":
                     st.markdown("<h3 style='color: #25D366;'>CONSULTAR VALOR</h3>", unsafe_allow_html=True)
 
                 # Link WhatsApp com seu número
-                meu_whats = "5585999999999" # ALTERAR PARA O SEU
+                meu_whats = "5585998351874" # ALTERAR PARA O SEU
                 link_zap = f"https://wa.me/{meu_whats}?text=Quero%20saber%20mais%20sobre%20{row['nome']}"
                 st.link_button("🚀 ENCOMENDAR AGORA", link_zap)
 
