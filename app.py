@@ -95,8 +95,14 @@ if pagina == "🛍️ Vitrine Premium":
         for index, row in df_view.reset_index().iterrows():
             with cols[index % 3]:
                 fotos = str(row['imagens']).split(",")
-                if os.path.exists(f"images/{fotos[0]}"):
-                    st.image(f"images/{fotos[0]}", use_container_width=True)
+                
+                # --- BLOCO DE SEGURANÇA PARA IMAGEM PRINCIPAL ---
+                foto_principal = f"images/{fotos[0]}"
+                if os.path.exists(foto_principal):
+                    try:
+                        st.image(foto_principal, use_container_width=True)
+                    except:
+                        st.error(f"Erro no arquivo: {fotos[0]}")
                 
                 st.markdown(f"### {row['nome']}")
                 st.markdown(f"<span style='background-color: #333; padding: 4px 10px; border-radius: 5px; font-size: 12px;'>{row['categoria']}</span>", unsafe_allow_html=True)
@@ -105,8 +111,13 @@ if pagina == "🛍️ Vitrine Premium":
                     st.write(row['descricao'])
                     if len(fotos) > 1:
                         for f in fotos[1:]:
-                            if os.path.exists(f"images/{f}"):
-                                st.image(f"images/{f}", use_container_width=True)
+                            caminho_f = f"images/{f}"
+                            # --- FILTRO PARA IGNORAR ARQUIVOS QUE NÃO SÃO IMAGENS ---
+                            if os.path.exists(caminho_f) and f.lower().endswith(('.png', '.jpg', '.jpeg')):
+                                try:
+                                    st.image(caminho_f, use_container_width=True)
+                                except:
+                                    continue # Se der erro, pula para a próxima
                 
                 preco_texto = f"R$ {row['preco']:.2f}" if row['preco'] > 0 else "SOB CONSULTA"
                 st.markdown(f"<h2 style='color: #25D366;'>{preco_texto}</h2>", unsafe_allow_html=True)
