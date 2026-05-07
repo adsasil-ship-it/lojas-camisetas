@@ -15,7 +15,6 @@ st.markdown("""
         background-color: #0e1117;
     }
 
-    /* Estilização dos Cards de Produto */
     div[data-testid="column"] {
         background-color: #1a1c23;
         border: 1px solid #333;
@@ -25,7 +24,6 @@ st.markdown("""
         margin-bottom: 30px;
     }
 
-    /* Botão estilo 'Call to Action' */
     .stButton>button {
         width: 100%;
         border-radius: 12px;
@@ -36,9 +34,10 @@ st.markdown("""
         font-weight: bold;
         transition: 0.3s;
     }
-    .stButton>button:hover {
-        transform: scale(1.02);
-        box-shadow: 0 5px 15px rgba(37, 211, 102, 0.4);
+    
+    /* Botão de Excluir Vermelho */
+    .stButton>button.excluir-btn {
+        background: linear-gradient(90deg, #ff4b4b 0%, #a50000 100%) !important;
     }
 
     h1, h2, h3, h4 { color: #ffffff !important; }
@@ -46,7 +45,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# 2. FUNÇÃO DE DADOS BLINDADA (Evita KeyError)
+# 2. FUNÇÃO DE DADOS
 def carregar_dados():
     colunas_obrigatorias = ["nome", "preco", "imagens", "categoria", "descricao"]
     caminho_csv = "produtos.csv"
@@ -54,7 +53,6 @@ def carregar_dados():
     if os.path.exists(caminho_csv):
         try:
             df = pd.read_csv(caminho_csv)
-            # Verifica se alguma coluna está faltando e adiciona
             for col in colunas_obrigatorias:
                 if col not in df.columns:
                     df[col] = "Não informado" if col != "preco" else 0.0
@@ -63,17 +61,14 @@ def carregar_dados():
             return pd.DataFrame(columns=colunas_obrigatorias)
     return pd.DataFrame(columns=colunas_obrigatorias)
 
-# Criar pasta de imagens
 if not os.path.exists("images"):
     os.makedirs("images")
 
-# --- CABEÇALHO EM DESTAQUE ---
+# --- CABEÇALHO ---
 col_logo, col_titulo = st.columns([1, 5])
 with col_logo:
     if os.path.exists("logo.png"):
         st.image("logo.png", width=120)
-    else:
-        st.display_logo = st.markdown("## 🎨")
 
 with col_titulo:
     st.markdown("""
@@ -83,61 +78,41 @@ with col_titulo:
 
 st.markdown("---")
 
-# --- NAVEGAÇÃO LATERAL ---
-st.sidebar.markdown("### 🧭 MENU")
+# --- NAVEGAÇÃO ---
 pagina = st.sidebar.radio("Ir para:", ["🛍️ Vitrine Premium", "⚙️ Painel do Designer"])
 
 # --- PÁGINA 1: VITRINE ---
 if pagina == "🛍️ Vitrine Premium":
     df = carregar_dados()
-    
     if df.empty:
         st.info("Aguardando o próximo lançamento oficial...")
     else:
-        # Filtros Modernos
-        st.sidebar.markdown("---")
         categorias = ["Todos os Estilos"] + sorted(df["categoria"].unique().tolist())
         cat_sel = st.sidebar.selectbox("Filtrar Coleção", categorias)
-        
         df_view = df if cat_sel == "Todos os Estilos" else df[df["categoria"] == cat_sel]
 
-        # Exibição em Grade (Grid)
         cols = st.columns(3)
         for index, row in df_view.reset_index().iterrows():
             with cols[index % 3]:
                 fotos = str(row['imagens']).split(",")
-                
-                # Imagem Principal com borda suave
                 if os.path.exists(f"images/{fotos[0]}"):
                     st.image(f"images/{fotos[0]}", use_container_width=True)
                 
                 st.markdown(f"### {row['nome']}")
                 st.markdown(f"<span style='background-color: #333; padding: 4px 10px; border-radius: 5px; font-size: 12px;'>{row['categoria']}</span>", unsafe_allow_html=True)
                 
-               # Descrição e Expansor de Fotos
                 with st.expander("🔍 Detalhes e + Fotos"):
                     st.write(row['descricao'])
                     if len(fotos) > 1:
                         for f in fotos[1:]:
-                            caminho_completo = f"images/{f}"
-                            if os.path.exists(caminho_completo):
-                                try:
-                                    # Só tenta mostrar se for uma imagem válida
-                                    st.image(caminho_completo, use_container_width=True)
-                                except:
-                                    # Se o arquivo estiver corrompido ou não for imagem, ele ignora
-                                    continue
+                            if os.path.exists(f"images/{f}"):
+                                st.image(f"images/{f}", use_container_width=True)
                 
-                # Lógica de Preço
-                if row['preco'] > 0:
-                    st.markdown(f"<h2 style='color: #25D366;'>R$ {row['preco']:.2f}</h2>", unsafe_allow_html=True)
-                    msg_zap = f"Olá Adriano! Gostaria de encomendar a {row['nome']}."
-                else:
-                    st.markdown("<h2 style='color: #25D366;'>SOB CONSULTA</h2>", unsafe_allow_html=True)
-                    msg_zap = f"Olá Adriano! Gostaria de um orçamento para o projeto: {row['nome']}."
-
-                # Link WhatsApp (COLOQUE SEU NÚMERO ABAIXO)
-                meu_whats = "5585998341874" 
+                preco_texto = f"R$ {row['preco']:.2f}" if row['preco'] > 0 else "SOB CONSULTA"
+                st.markdown(f"<h2 style='color: #25D366;'>{preco_texto}</h2>", unsafe_allow_html=True)
+                
+                meu_whats = "5585998351874" 
+                msg_zap = f"Olá Adriano! Gostaria de falar sobre {row['nome']}."
                 st.link_button("🚀 SOLICITAR VIA WHATSAPP", f"https://wa.me/{meu_whats}?text={msg_zap.replace(' ', '%20')}")
 
 # --- PÁGINA 2: ADMIN ---
@@ -146,27 +121,49 @@ elif pagina == "⚙️ Painel do Designer":
     senha = st.text_input("Senha de Acesso", type="password")
     
     if senha == "suasenha123":
-        with st.form("cadastro_form", clear_on_submit=True):
-            n = st.text_input("Nome do Lançamento")
-            d = st.text_area("Descrição do Produto")
-            c1, c2 = st.columns(2)
-            p = c1.number_input("Preço (0 para consulta)", min_value=0.0)
-            cat = c2.selectbox("Categoria", ["Futebol", "Religiosa", "Geek", "Corporativa", "Outros"])
+        tab1, tab2 = st.tabs(["➕ Adicionar Produto", "🗑️ Excluir Produtos"])
+
+        # ABA 1: ADICIONAR
+        with tab1:
+            with st.form("cadastro_form", clear_on_submit=True):
+                n = st.text_input("Nome do Lançamento")
+                d = st.text_area("Descrição")
+                p = st.number_input("Preço", min_value=0.0)
+                cat = st.selectbox("Categoria", ["Futebol", "Religiosa", "Geek", "Corporativa", "Outros"])
+                f = st.file_uploader("Fotos", accept_multiple_files=True)
+                
+                if st.form_submit_button("PUBLICAR PRODUTO"):
+                    if f and n:
+                        lista_nomes = []
+                        for foto in f:
+                            nome_f = foto.name.replace(" ", "_")
+                            with open(os.path.join("images", nome_f), "wb") as arq:
+                                arq.write(foto.getbuffer())
+                            lista_nomes.append(nome_f)
+                        
+                        df_atual = carregar_dados()
+                        novo = pd.DataFrame([{"nome": n, "preco": p, "imagens": ",".join(lista_nomes), "categoria": cat, "descricao": d}])
+                        pd.concat([df_atual, novo], ignore_index=True).to_csv("produtos.csv", index=False)
+                        st.success("Produto adicionado!")
+                        st.rerun()
+
+        # ABA 2: EXCLUIR
+        with tab2:
+            st.subheader("Selecione os itens para remover")
+            df_excluir = carregar_dados()
             
-            f = st.file_uploader("Fotos do Produto (Selecione todas de uma vez)", accept_multiple_files=True)
-            
-            if st.form_submit_button("PUBLICAR PRODUTO"):
-                if f:
-                    lista_nomes = []
-                    for foto in f:
-                        nome_f = foto.name.replace(" ", "_")
-                        with open(os.path.join("images", nome_f), "wb") as arq:
-                            arq.write(foto.getbuffer())
-                        lista_nomes.append(nome_f)
-                    
-                    df_atual = carregar_dados()
-                    novo = pd.DataFrame([{"nome": n, "preco": p, "imagens": ",".join(lista_nomes), "categoria": cat, "descricao": d}])
-                    df_novo = pd.concat([df_atual, novo], ignore_index=True)
-                    df_novo.to_csv("produtos.csv", index=False)
-                    st.success("Produto adicionado com sucesso!")
-                    st.rerun()
+            if df_excluir.empty:
+                st.write("Nenhum produto para excluir.")
+            else:
+                for index, row in df_excluir.iterrows():
+                    col_info, col_btn = st.columns([3, 1])
+                    with col_info:
+                        st.write(f"**{row['nome']}** ({row['categoria']})")
+                    with col_btn:
+                        # Botão de excluir para cada linha
+                        if st.button(f"Excluir", key=f"del_{index}"):
+                            # Remove o item do DataFrame
+                            df_novo = df_excluir.drop(index)
+                            df_novo.to_csv("produtos.csv", index=False)
+                            st.warning(f"Produto '{row['nome']}' removido!")
+                            st.rerun()
