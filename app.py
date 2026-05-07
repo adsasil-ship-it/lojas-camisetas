@@ -114,13 +114,19 @@ if pagina == "🛍️ Vitrine Premium":
                 st.markdown(f"### {row['nome']}")
                 st.markdown(f"<span style='background-color: #333; padding: 4px 10px; border-radius: 5px; font-size: 12px;'>{row['categoria']}</span>", unsafe_allow_html=True)
                 
-                # Descrição e Expansor de Fotos
+               # Descrição e Expansor de Fotos
                 with st.expander("🔍 Detalhes e + Fotos"):
                     st.write(row['descricao'])
                     if len(fotos) > 1:
                         for f in fotos[1:]:
-                            if os.path.exists(f"images/{f}"):
-                                st.image(f"images/{f}", use_container_width=True)
+                            caminho_completo = f"images/{f}"
+                            if os.path.exists(caminho_completo):
+                                try:
+                                    # Só tenta mostrar se for uma imagem válida
+                                    st.image(caminho_completo, use_container_width=True)
+                                except:
+                                    # Se o arquivo estiver corrompido ou não for imagem, ele ignora
+                                    continue
                 
                 # Lógica de Preço
                 if row['preco'] > 0:
