@@ -72,7 +72,7 @@ if pagina == "🛍️ Vitrine de Produtos":
                     txt_zap = f"Olá Adriano! Gostaria de um orçamento para a {row['nome']}."
 
                 # Link do WhatsApp (Troque pelo seu número com DDD)
-                meu_whats = "5585999999999" # COLOQUE SEU NÚMERO AQUI
+                meu_whats = "5585998351874" # COLOQUE SEU NÚMERO AQUI
                 link_whatsapp = f"https://wa.me/{meu_whats}?text={txt_zap.replace(' ', '%20')}"
                 st.link_button("Solicitar Orçamento", link_whatsapp)
                 
