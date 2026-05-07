@@ -25,7 +25,7 @@ pagina = st.sidebar.radio("Ir para:", ["Vitrine de Produtos", "Painel Admin"])
 
 # --- PÁGINA 1: VITRINE ---
 if pagina == "Vitrine de Produtos":
-    st.title("👕 Nossa Coleção")
+    st.title("👕 LOJA ADRIANO ARTES")
     df = carregar_dados()
     
     if df.empty:
