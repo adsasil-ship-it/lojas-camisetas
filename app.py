@@ -3,15 +3,18 @@ import pandas as pd
 import os
 from datetime import datetime
 
-# 1. CONFIGURAÇÃO DE DESIGN
+# 1. CONFIGURAÇÃO
 st.set_page_config(page_title="Adriano Designer | Studio", layout="wide")
 
+# CSS Ajustado para garantir que os textos apareçam
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap');
     html, body, [class*="css"] { font-family: 'Inter', sans-serif; background-color: #0e1117; }
     
-    /* Cards de Produto */
+    .stMarkdown h3 { color: white !important; margin-top: 10px; font-weight: 700; }
+    .stMarkdown p { color: #cfcfcf !important; }
+    
     div[data-testid="column"] {
         background-color: #1a1c23;
         border: 1px solid #333;
@@ -20,149 +23,151 @@ st.markdown("""
         margin-bottom: 20px;
     }
 
-    /* Badge de Destaque */
     .badge-destaque {
-        background: linear-gradient(90deg, #FFD700, #FFA500);
-        color: black !important;
-        padding: 2px 10px;
-        border-radius: 20px;
+        background: linear-gradient(90deg, #25D366, #128C7E);
+        color: white !important;
+        padding: 4px 12px;
+        border-radius: 8px;
         font-weight: bold;
-        font-size: 12px;
+        font-size: 11px;
         margin-bottom: 10px;
         display: inline-block;
+        text-transform: uppercase;
     }
-
-    .stButton>button {
-        width: 100%;
-        border-radius: 12px;
-        background: linear-gradient(90deg, #25D366 0%, #128C7E 100%);
-        color: white;
-        font-weight: bold;
-    }
-    
-    h1, h2, h3 { color: #ffffff !important; }
     </style>
     """, unsafe_allow_html=True)
 
-# 2. FUNÇÕES DE DADOS
+# 2. FUNÇÃO DE DADOS (CORRIGIDA PARA NÃO SUMIR NOMES)
 def carregar_dados():
-    colunas = ["nome", "preco", "imagens", "categoria", "subcategoria", "descricao"]
-    if os.path.exists("produtos.csv"):
-        df = pd.read_csv("produtos.csv")
-        # Garantir que todas as colunas existam
-        for col in colunas:
-            if col not in df.columns: df[col] = ""
+    colunas_obrigatorias = ["nome", "preco", "imagens", "categoria", "subcategoria", "descricao"]
+    caminho_csv = "produtos.csv"
+    
+    if os.path.exists(caminho_csv):
+        df = pd.read_csv(caminho_csv)
+        # Se faltar alguma coluna (como subcategoria), ele cria vazia para não dar erro
+        for col in colunas_obrigatorias:
+            if col not in df.columns:
+                df[col] = ""
         return df
-    return pd.DataFrame(columns=colunas)
+    return pd.DataFrame(columns=colunas_obrigatorias)
 
 if not os.path.exists("images"): os.makedirs("images")
 
-# --- CABEÇALHO ---
-col_logo, col_titulo = st.columns([1, 5])
-with col_titulo:
-    st.markdown("<h1>ADRIANO <span style='color: #25D366;'>DESIGNER</span></h1>", unsafe_allow_html=True)
-    st.write("Estúdio de Criação & Personalizados Premium")
+# --- CABEÇALHO (LOGO VOLTOU) ---
+col_logo, col_titulo = st.columns([1, 4])
+with col_logo:
+    if os.path.exists("logo.png"):
+        st.image("logo.png", width=120)
+    else:
+        st.markdown("### 🎨 ADRIANO") # Texto reserva se a logo sumir do PC
 
-# --- NAVEGAÇÃO LATERAL ---
+with col_titulo:
+    st.markdown("<h1 style='margin-bottom:0'>ADRIANO <span style='color: #25D366;'>DESIGNER</span></h1>", unsafe_allow_html=True)
+    st.markdown("<p style='font-size:18px; color:#a0a0a0'>Estúdio de Criação & Personalizados Premium</p>", unsafe_allow_html=True)
+
+st.markdown("---")
+
+# --- NAVEGAÇÃO ---
 pagina = st.sidebar.radio("Navegação", ["🛍️ Vitrine", "⚙️ Painel Admin"])
 
 if pagina == "🛍️ Vitrine":
     df = carregar_dados()
     
-    # Menu de Categorias Visível (Horizontal)
-    if not df.empty:
-        lista_cats = ["Todos"] + sorted(df["categoria"].unique().tolist())
-        escolha_cat = st.segmented_control("Filtrar por Coleção:", lista_cats, default="Todos")
+    if df.empty:
+        st.info("Nenhum produto cadastrado no momento.")
+    else:
+        # Menu de Categorias mais visível
+        categorias = ["Todos"] + sorted(df["categoria"].unique().astype(str).tolist())
+        escolha_cat = st.radio("Selecione uma Coleção:", categorias, horizontal=True)
         
-        df_filtrado = df if escolha_cat == "Todos" else df[df["categoria"] == escolha_cat]
-        
-        # Ordenar: Recentes primeiro
-        df_filtrado = df_filtrado.iloc[::-1] 
+        df_view = df if escolha_cat == "Todos" else df[df["categoria"] == escolha_cat]
+        # Recentes primeiro
+        df_view = df_view.iloc[::-1]
 
-        st.markdown("---")
-        
         cols = st.columns(3)
-        for i, (idx, row) in enumerate(df_filtrado.iterrows()):
+        for i, (idx, row) in enumerate(df_view.iterrows()):
             with cols[i % 3]:
-                # Selo de Destaque para os 3 mais recentes no sistema
-                if idx in df.tail(3).index:
-                    st.markdown('<div class="badge-destaque">✨ NOVIDADE / DESTAQUE</div>', unsafe_allow_html=True)
+                # DESTAQUE: Se for um dos últimos 3 cadastrados
+                if idx in df.index[-3:]:
+                    st.markdown('<div class="badge-destaque">✨ Destaque / Lançamento</div>', unsafe_allow_html=True)
                 
+                # Imagem
                 fotos = str(row['imagens']).split(",")
-                if os.path.exists(f"images/{fotos[0]}"):
-                    st.image(f"images/{fotos[0]}", use_container_width=True)
+                caminho_img = f"images/{fotos[0]}"
+                if os.path.exists(caminho_img):
+                    st.image(caminho_img, use_container_width=True)
                 
+                # Dados do Produto (Garantindo que apareçam)
                 st.markdown(f"### {row['nome']}")
-                st.caption(f"{row['categoria']} › {row['subcategoria']}")
+                st.markdown(f"**{row['categoria']}** | {row['subcategoria']}")
                 
-                with st.expander("Ver detalhes"):
+                with st.expander("Ver Descrição"):
                     st.write(row['descricao'])
                 
                 preco = f"R$ {row['preco']:.2f}" if row['preco'] > 0 else "CONSULTAR"
-                st.markdown(f"<h3 style='color: #25D366;'>{preco}</h3>", unsafe_allow_html=True)
+                st.markdown(f"<h2 style='color: #25D366; font-size: 24px;'>{preco}</h2>", unsafe_allow_html=True)
                 
-                zap_link = f"https://wa.me/5585998351874?text=Oi! Quero saber sobre o {row['nome']}"
-                st.link_button("PEDIR VIA WHATSAPP", zap_link)
+                link_zap = f"https://wa.me/5585998351874?text=Olá Adriano, tenho interesse no: {row['nome']}"
+                st.link_button("🚀 SOLICITAR AGORA", link_zap)
 
 elif pagina == "⚙️ Painel Admin":
     senha = st.sidebar.text_input("Senha", type="password")
     if senha == "suasenha123":
-        tab1, tab2, tab3 = st.tabs(["➕ Novo", "📝 Editar", "🗑️ Remover"])
+        tab1, tab2, tab3 = st.tabs(["➕ Adicionar", "📝 Editar", "🗑️ Excluir"])
         df = carregar_dados()
 
         with tab1:
-            with st.form("add_form"):
+            with st.form("form_add", clear_on_submit=True):
                 n = st.text_input("Nome do Produto")
                 col1, col2 = st.columns(2)
-                cat = col1.text_input("Categoria (Ex: Futebol)")
-                sub = col2.text_input("Subcategoria (Ex: Camisas Retro)")
+                cat = col1.text_input("Categoria")
+                sub = col2.text_input("Subcategoria")
                 p = st.number_input("Preço", min_value=0.0)
                 d = st.text_area("Descrição")
                 f = st.file_uploader("Fotos", accept_multiple_files=True)
                 
-                if st.form_submit_button("CADASTRAR"):
+                if st.form_submit_button("PUBLICAR"):
                     if n and f:
-                        nomes_f = []
+                        lista_f = []
                         for foto in f:
-                            nome_f = f"{datetime.now().timestamp()}_{foto.name}"
+                            nome_f = f"{datetime.now().timestamp()}_{foto.name}".replace(" ", "_")
                             with open(f"images/{nome_f}", "wb") as arq:
                                 arq.write(foto.getbuffer())
-                            nomes_f.append(nome_f)
+                            lista_f.append(nome_f)
                         
-                        novo_item = pd.DataFrame([{"nome": n, "preco": p, "imagens": ",".join(nomes_f), 
-                                                 "categoria": cat, "subcategoria": sub, "descricao": d}])
-                        pd.concat([df, novo_item]).to_csv("produtos.csv", index=False)
-                        st.success("Cadastrado!")
+                        novo = pd.DataFrame([{"nome": n, "preco": p, "imagens": ",".join(lista_f), "categoria": cat, "subcategoria": sub, "descricao": d}])
+                        pd.concat([df, novo], ignore_index=True).to_csv("produtos.csv", index=False)
+                        st.success("Produto Publicado!")
                         st.rerun()
 
         with tab2:
-            st.subheader("Selecione um produto para editar")
-            prod_edit = st.selectbox("Produto", df["nome"].tolist())
-            idx_edit = df[df["nome"] == prod_edit].index[0]
-            
-            with st.form("edit_form"):
-                en = st.text_input("Nome", value=df.at[idx_edit, 'nome'])
-                ecat = st.text_input("Categoria", value=df.at[idx_edit, 'categoria'])
-                esub = st.text_input("Subcategoria", value=df.at[idx_edit, 'subcategoria'])
-                ep = st.number_input("Preço", value=float(df.at[idx_edit, 'preco']))
-                ed = st.text_area("Descrição", value=df.at[idx_edit, 'descricao'])
+            if not df.empty:
+                prod_edit = st.selectbox("Escolha o produto para editar", df["nome"].tolist())
+                idx_edit = df[df["nome"] == prod_edit].index[0]
                 
-                if st.form_submit_button("SALVAR ALTERAÇÕES"):
-                    df.at[idx_edit, 'nome'] = en
-                    df.at[idx_edit, 'categoria'] = ecat
-                    df.at[idx_edit, 'subcategoria'] = esub
-                    df.at[idx_edit, 'preco'] = ep
-                    df.at[idx_edit, 'descricao'] = ed
-                    df.to_csv("produtos.csv", index=False)
-                    st.success("Atualizado!")
-                    st.rerun()
+                with st.form("form_edit"):
+                    en = st.text_input("Nome", value=df.at[idx_edit, 'nome'])
+                    ecat = st.text_input("Categoria", value=df.at[idx_edit, 'categoria'])
+                    esub = st.text_input("Subcategoria", value=df.at[idx_edit, 'subcategoria'])
+                    ep = st.number_input("Preço", value=float(df.at[idx_edit, 'preco']))
+                    ed = st.text_area("Descrição", value=df.at[idx_edit, 'descricao'])
+                    
+                    if st.form_submit_button("ATUALIZAR DADOS"):
+                        df.at[idx_edit, 'nome'] = en
+                        df.at[idx_edit, 'categoria'] = ecat
+                        df.at[idx_edit, 'subcategoria'] = esub
+                        df.at[idx_edit, 'preco'] = ep
+                        df.at[idx_edit, 'descricao'] = ed
+                        df.to_csv("produtos.csv", index=False)
+                        st.success("Dados atualizados com sucesso!")
+                        st.rerun()
+            else:
+                st.write("Nada para editar.")
 
         with tab3:
             for i, row in df.iterrows():
                 c1, c2 = st.columns([4, 1])
-                c1.write(f"{row['nome']} | {row['categoria']}")
+                c1.write(f"**{row['nome']}**")
                 if c2.button("Excluir", key=f"del_{i}"):
                     df.drop(i).to_csv("produtos.csv", index=False)
                     st.rerun()
-    else:
-        st.warning("Insira a senha para acessar o painel.")
