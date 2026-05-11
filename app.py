@@ -4,7 +4,7 @@ import os
 from datetime import datetime
 
 # 1. CONFIGURAÇÃO DE DESIGN
-st.set_page_config(page_title="Adriano Designer | Studio", layout="wide")
+st.set_page_config(page_title="Adriano Designer", layout="wide")
 
 st.markdown("""
     <style>
