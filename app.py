@@ -43,11 +43,8 @@ def carregar_dados():
     if os.path.exists(caminho):
         try:
             df = pd.read_csv(caminho)
-            # Normaliza o nome da coluna de imagens para evitar o KeyError
-            if "imagens" in df.columns:
-                df = df.rename(columns={"imagens": "imagens"})
-            elif "images" in df.columns:
-                df = df.rename(columns={"images": "imagens"})
+            if "imagens" not in df.columns:
+                df["imagens"] = ""
             return df
         except: return pd.DataFrame()
     return pd.DataFrame()
@@ -70,13 +67,10 @@ if menu == "🛍️ Vitrine":
     if df.empty:
         st.info("Cadastre produtos no Painel Admin.")
     else:
-        # 1. Identifica IDs para os selos
         lista_lancamentos = df.tail(6)["id"].tolist() 
         lista_novidades = df.head(3)["id"].tolist()   
 
-        # 2. ORDENAÇÃO: Lançamentos no Topo (ordem 0), Restante embaixo (ordem 1)
         df['ordem_topo'] = df['id'].apply(lambda x: 0 if x in lista_lancamentos else 1)
-        # Ordena por prioridade (0 antes de 1) e depois pelos mais recentes (ID maior)
         df_exibicao = df.sort_values(by=['ordem_topo', 'id'], ascending=[True, False])
 
         cat_sel = st.selectbox("Filtrar Categoria", ["Todos"] + sorted(df["categoria"].unique().astype(str).tolist()))
@@ -85,13 +79,11 @@ if menu == "🛍️ Vitrine":
         st.divider()
         cols = st.columns(2)
         for i, (idx, row) in enumerate(df_v.iterrows()):
-            # Atualiza visualizações
             df.at[idx, "visualizacoes"] = int(row.get("visualizacoes", 0)) + 1
             
             with cols[i % 2]:
                 st.markdown('<div class="card-produto">', unsafe_allow_html=True)
                 
-                # Selos
                 if row['id'] in lista_lancamentos:
                     st.markdown('<div class="badge-lancamento">LANÇAMENTO</div>', unsafe_allow_html=True)
                 if row['id'] in lista_novidades:
@@ -99,10 +91,12 @@ if menu == "🛍️ Vitrine":
                 if row.get('promocao'): 
                     st.markdown('<div class="badge-promo">15% OFF</div>', unsafe_allow_html=True)
                 
-                # Nome da coluna de imagem tratado com .get() para segurança total
-                img_name = row.get('imagens') or row.get('images')
-                if img_name and os.path.exists(f"images/{img_name}"):
-                    st.image(f"images/{img_name}", use_container_width=True)
+                # Lógica para Múltiplas Imagens
+                img_data = str(row.get('imagens', ""))
+                if img_data and img_data != "nan":
+                    lista_imgs = img_data.split(";")
+                    # Mostra a primeira imagem como principal
+                    st.image(f"images/{lista_imgs[0]}", use_container_width=True)
                 
                 st.markdown(f"**{row['nome']}**")
                 
@@ -113,13 +107,19 @@ if menu == "🛍️ Vitrine":
                 else:
                     st.markdown(f'<span class="preco-venda">R$ {float(row["preco_venda"]):.2f}</span>', unsafe_allow_html=True)
                 
-                with st.expander("Ver Detalhes"): st.write(row['descricao'])
+                with st.expander("Ver Detalhes"): 
+                    st.write(row['descricao'])
+                    # Se houver mais fotos, mostra aqui dentro
+                    if img_data and ";" in img_data:
+                        st.write("---")
+                        st.write("Mais fotos:")
+                        for extra_img in lista_imgs:
+                            st.image(f"images/{extra_img}", width=150)
                 
                 st.link_button("PEDIR", f"https://wa.me/5585998351874?text=Interesse: {row['nome']}")
                 st.markdown(f'<span class="views-counter">👁️ {int(df.at[idx, "visualizacoes"])}</span>', unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)
         
-        # Salva o progresso e limpa coluna temporária
         df.drop(columns=['ordem_topo']).to_csv("produtos.csv", index=False)
 
 # --- ADMIN ---
@@ -136,13 +136,18 @@ else:
                 pv = col1.number_input("Venda", min_value=0.0)
                 pc = col2.number_input("Custo", min_value=0.0)
                 ct = st.text_input("Categoria")
-                im = st.file_uploader("Imagem")
+                im = st.file_uploader("Imagens (Selecione uma ou mais)", accept_multiple_files=True)
                 pr = st.checkbox("Promoção")
                 if st.form_submit_button("SALVAR"):
                     if n and im:
-                        fn = f"{int(datetime.now().timestamp())}_{im.name}"
-                        with open(f"images/{fn}", "wb") as f: f.write(im.getbuffer())
-                        novo = pd.DataFrame([{"id": int(datetime.now().timestamp()), "nome": n, "preco_venda": pv, "preco_custo": pc, "imagens": fn, "categoria": ct, "descricao": d, "visualizacoes": 0, "promocao": pr}])
+                        nomes_arquivos = []
+                        for file in im:
+                            fn = f"{int(datetime.now().timestamp())}_{file.name}"
+                            with open(f"images/{fn}", "wb") as f: f.write(file.getbuffer())
+                            nomes_arquivos.append(fn)
+                        
+                        str_imagens = ";".join(nomes_arquivos)
+                        novo = pd.DataFrame([{"id": int(datetime.now().timestamp()), "nome": n, "preco_venda": pv, "preco_custo": pc, "imagens": str_imagens, "categoria": ct, "descricao": d, "visualizacoes": 0, "promocao": pr}])
                         df = pd.concat([df, novo], ignore_index=True)
                         df.to_csv("produtos.csv", index=False)
                         st.success("Produto salvo!")
@@ -152,14 +157,40 @@ else:
             if not df.empty:
                 sel = st.selectbox("Escolha para editar", df["nome"].tolist())
                 idx_e = df[df["nome"] == sel].index[0]
+                
                 with st.form("edit"):
+                    st.write(f"Editando ID: {df.at[idx_e, 'id']}")
                     en = st.text_input("Nome", value=df.at[idx_e, 'nome'])
-                    ev = st.number_input("Preço Venda", value=float(df.at[idx_e, 'preco_venda']))
+                    ed = st.text_area("Descrição", value=df.at[idx_e, 'descricao'])
+                    col1, col2 = st.columns(2)
+                    ev = col1.number_input("Preço Venda", value=float(df.at[idx_e, 'preco_venda']))
+                    ec = col2.number_input("Preço Custo", value=float(df.at[idx_e, 'preco_custo']))
+                    ect = st.text_input("Categoria", value=df.at[idx_e, 'categoria'])
                     ep = st.checkbox("Promoção", value=bool(df.at[idx_e, 'promocao']))
-                    if st.form_submit_button("ATUALIZAR"):
-                        df.at[idx_e, 'nome'], df.at[idx_e, 'preco_venda'], df.at[idx_e, 'promocao'] = en, ev, ep
+                    
+                    st.warning("Se selecionar novas imagens, as antigas deste produto serão ignoradas.")
+                    eim = st.file_uploader("Substituir Imagens", accept_multiple_files=True)
+                    
+                    if st.form_submit_button("ATUALIZAR TUDO"):
+                        # Atualiza campos de texto e números
+                        df.at[idx_e, 'nome'] = en
+                        df.at[idx_e, 'descricao'] = ed
+                        df.at[idx_e, 'preco_venda'] = ev
+                        df.at[idx_e, 'preco_custo'] = ec
+                        df.at[idx_e, 'categoria'] = ect
+                        df.at[idx_e, 'promocao'] = ep
+                        
+                        # Atualiza imagens se novas forem enviadas
+                        if eim:
+                            novos_nomes = []
+                            for file in eim:
+                                fn = f"edit_{int(datetime.now().timestamp())}_{file.name}"
+                                with open(f"images/{fn}", "wb") as f: f.write(file.getbuffer())
+                                novos_nomes.append(fn)
+                            df.at[idx_e, 'imagens'] = ";".join(novos_nomes)
+                        
                         df.to_csv("produtos.csv", index=False)
-                        st.success("Atualizado!")
+                        st.success("Produto atualizado com sucesso!")
                         st.rerun()
 
         with t3:
