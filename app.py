@@ -27,7 +27,6 @@ st.markdown("""
         text-align: center; height: 100%; position: relative; display: flex; flex-direction: column;
     }
 
-    /* SELOS */
     .badge-promo { background: #A020F0; color: white; font-size: 9px; padding: 3px 7px; border-radius: 4px; position: absolute; top: 8px; right: 8px; z-index: 10; font-weight: bold; }
     .badge-lancamento { background: #25D366; color: white; font-size: 9px; padding: 3px 7px; border-radius: 4px; position: absolute; top: 8px; left: 8px; z-index: 10; font-weight: bold; }
     .badge-novidade { background: #007BFF; color: white; font-size: 9px; padding: 3px 7px; border-radius: 4px; position: absolute; top: 35px; left: 8px; z-index: 10; font-weight: bold; }
@@ -44,6 +43,11 @@ def carregar_dados():
     if os.path.exists(caminho):
         try:
             df = pd.read_csv(caminho)
+            # Normaliza o nome da coluna de imagens para evitar o KeyError
+            if "imagens" in df.columns:
+                df = df.rename(columns={"imagens": "imagens"})
+            elif "images" in df.columns:
+                df = df.rename(columns={"images": "imagens"})
             return df
         except: return pd.DataFrame()
     return pd.DataFrame()
@@ -66,27 +70,28 @@ if menu == "🛍️ Vitrine":
     if df.empty:
         st.info("Cadastre produtos no Painel Admin.")
     else:
-        # Identificação para os selos
+        # 1. Identifica IDs para os selos
         lista_lancamentos = df.tail(6)["id"].tolist() 
         lista_novidades = df.head(3)["id"].tolist()   
 
-        # REGRA DE OURO: Ordenar para que os lançamentos fiquem no topo
-        # Criamos uma coluna auxiliar 'ordem_topo' onde Lançamentos = 0 e outros = 1
+        # 2. ORDENAÇÃO: Lançamentos no Topo (ordem 0), Restante embaixo (ordem 1)
         df['ordem_topo'] = df['id'].apply(lambda x: 0 if x in lista_lancamentos else 1)
-        df_ordenado = df.sort_values(by=['ordem_topo', 'id'], ascending=[True, False])
+        # Ordena por prioridade (0 antes de 1) e depois pelos mais recentes (ID maior)
+        df_exibicao = df.sort_values(by=['ordem_topo', 'id'], ascending=[True, False])
 
         cat_sel = st.selectbox("Filtrar Categoria", ["Todos"] + sorted(df["categoria"].unique().astype(str).tolist()))
-        df_v = df_ordenado if cat_sel == "Todos" else df_ordenado[df_ordenado["categoria"] == cat_sel]
+        df_v = df_exibicao if cat_sel == "Todos" else df_exibicao[df_exibicao["categoria"] == cat_sel]
         
         st.divider()
         cols = st.columns(2)
         for i, (idx, row) in enumerate(df_v.iterrows()):
-            # Atualiza visualizações no DF original usando o index
+            # Atualiza visualizações
             df.at[idx, "visualizacoes"] = int(row.get("visualizacoes", 0)) + 1
             
             with cols[i % 2]:
                 st.markdown('<div class="card-produto">', unsafe_allow_html=True)
                 
+                # Selos
                 if row['id'] in lista_lancamentos:
                     st.markdown('<div class="badge-lancamento">LANÇAMENTO</div>', unsafe_allow_html=True)
                 if row['id'] in lista_novidades:
@@ -94,10 +99,10 @@ if menu == "🛍️ Vitrine":
                 if row.get('promocao'): 
                     st.markdown('<div class="badge-promo">15% OFF</div>', unsafe_allow_html=True)
                 
-                if os.path.exists(f"images/{row['images']}"): # Corrigido para 'images' conforme o CSV
-                    st.image(f"images/{row['images']}", use_container_width=True)
-                elif os.path.exists(f"images/{row.get('imagens')}"):
-                    st.image(f"images/{row['imagens']}", use_container_width=True)
+                # Nome da coluna de imagem tratado com .get() para segurança total
+                img_name = row.get('imagens') or row.get('images')
+                if img_name and os.path.exists(f"images/{img_name}"):
+                    st.image(f"images/{img_name}", use_container_width=True)
                 
                 st.markdown(f"**{row['nome']}**")
                 
@@ -114,11 +119,10 @@ if menu == "🛍️ Vitrine":
                 st.markdown(f'<span class="views-counter">👁️ {int(df.at[idx, "visualizacoes"])}</span>', unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)
         
-        # Remove a coluna temporária antes de salvar
-        df_save = df.drop(columns=['ordem_topo'])
-        df_save.to_csv("produtos.csv", index=False)
+        # Salva o progresso e limpa coluna temporária
+        df.drop(columns=['ordem_topo']).to_csv("produtos.csv", index=False)
 
-# --- ADMIN (Mantido igual) ---
+# --- ADMIN ---
 else:
     senha = st.sidebar.text_input("Senha", type="password")
     if senha == "suasenha123":
@@ -141,33 +145,35 @@ else:
                         novo = pd.DataFrame([{"id": int(datetime.now().timestamp()), "nome": n, "preco_venda": pv, "preco_custo": pc, "imagens": fn, "categoria": ct, "descricao": d, "visualizacoes": 0, "promocao": pr}])
                         df = pd.concat([df, novo], ignore_index=True)
                         df.to_csv("produtos.csv", index=False)
+                        st.success("Produto salvo!")
                         st.rerun()
 
         with t2:
             if not df.empty:
-                sel = st.selectbox("Editar:", df["nome"].tolist())
+                sel = st.selectbox("Escolha para editar", df["nome"].tolist())
                 idx_e = df[df["nome"] == sel].index[0]
                 with st.form("edit"):
                     en = st.text_input("Nome", value=df.at[idx_e, 'nome'])
-                    ev = st.number_input("Preço", value=float(df.at[idx_e, 'preco_venda']))
+                    ev = st.number_input("Preço Venda", value=float(df.at[idx_e, 'preco_venda']))
                     ep = st.checkbox("Promoção", value=bool(df.at[idx_e, 'promocao']))
                     if st.form_submit_button("ATUALIZAR"):
                         df.at[idx_e, 'nome'], df.at[idx_e, 'preco_venda'], df.at[idx_e, 'promocao'] = en, ev, ep
                         df.to_csv("produtos.csv", index=False)
+                        st.success("Atualizado!")
                         st.rerun()
 
         with t3:
             for i, row in df.iterrows():
                 c1, c2 = st.columns([4,1])
-                c1.write(row['nome'])
+                c1.write(f"🗑️ {row['nome']}")
                 if c2.button("Apagar", key=f"d_{row['id']}"):
                     df = df.drop(i)
                     df.to_csv("produtos.csv", index=False)
                     st.rerun()
 
         with t4:
-            st.download_button("Download CSV", df.to_csv(index=False).encode('utf-8'), "loja.csv")
-            up = st.file_uploader("Restaurar", type="csv")
-            if up and st.button("Confirmar"):
+            st.download_button("Download Backup CSV", df.to_csv(index=False).encode('utf-8'), "loja.csv")
+            up = st.file_uploader("Restaurar via CSV", type="csv")
+            if up and st.button("Confirmar Restauração"):
                 pd.read_csv(up).to_csv("produtos.csv", index=False)
                 st.rerun()
