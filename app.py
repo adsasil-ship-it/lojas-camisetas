@@ -66,22 +66,27 @@ if menu == "🛍️ Vitrine":
     if df.empty:
         st.info("Cadastre produtos no Painel Admin.")
     else:
-        # Lógica de Selos baseada na ordem do DataFrame
-        lista_lancamentos = df.tail(6)["id"].tolist() # Últimos 6 adicionados
-        lista_novidades = df.head(3)["id"].tolist()   # Primeiros 3 adicionados
+        # Identificação para os selos
+        lista_lancamentos = df.tail(6)["id"].tolist() 
+        lista_novidades = df.head(3)["id"].tolist()   
+
+        # REGRA DE OURO: Ordenar para que os lançamentos fiquem no topo
+        # Criamos uma coluna auxiliar 'ordem_topo' onde Lançamentos = 0 e outros = 1
+        df['ordem_topo'] = df['id'].apply(lambda x: 0 if x in lista_lancamentos else 1)
+        df_ordenado = df.sort_values(by=['ordem_topo', 'id'], ascending=[True, False])
+
+        cat_sel = st.selectbox("Filtrar Categoria", ["Todos"] + sorted(df["categoria"].unique().astype(str).tolist()))
+        df_v = df_ordenado if cat_sel == "Todos" else df_ordenado[df_ordenado["categoria"] == cat_sel]
         
-        cat_sel = st.selectbox("Categoria", ["Todos"] + sorted(df["categoria"].unique().astype(str).tolist()))
-        df_v = df if cat_sel == "Todos" else df[df["categoria"] == cat_sel]
-        
+        st.divider()
         cols = st.columns(2)
         for i, (idx, row) in enumerate(df_v.iterrows()):
-            # Atualiza visualizações
+            # Atualiza visualizações no DF original usando o index
             df.at[idx, "visualizacoes"] = int(row.get("visualizacoes", 0)) + 1
             
             with cols[i % 2]:
                 st.markdown('<div class="card-produto">', unsafe_allow_html=True)
                 
-                # Exibição dos Selos
                 if row['id'] in lista_lancamentos:
                     st.markdown('<div class="badge-lancamento">LANÇAMENTO</div>', unsafe_allow_html=True)
                 if row['id'] in lista_novidades:
@@ -89,7 +94,9 @@ if menu == "🛍️ Vitrine":
                 if row.get('promocao'): 
                     st.markdown('<div class="badge-promo">15% OFF</div>', unsafe_allow_html=True)
                 
-                if os.path.exists(f"images/{row['imagens']}"):
+                if os.path.exists(f"images/{row['images']}"): # Corrigido para 'images' conforme o CSV
+                    st.image(f"images/{row['images']}", use_container_width=True)
+                elif os.path.exists(f"images/{row.get('imagens')}"):
                     st.image(f"images/{row['imagens']}", use_container_width=True)
                 
                 st.markdown(f"**{row['nome']}**")
@@ -107,9 +114,11 @@ if menu == "🛍️ Vitrine":
                 st.markdown(f'<span class="views-counter">👁️ {int(df.at[idx, "visualizacoes"])}</span>', unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)
         
-        df.to_csv("produtos.csv", index=False)
+        # Remove a coluna temporária antes de salvar
+        df_save = df.drop(columns=['ordem_topo'])
+        df_save.to_csv("produtos.csv", index=False)
 
-# --- ADMIN ---
+# --- ADMIN (Mantido igual) ---
 else:
     senha = st.sidebar.text_input("Senha", type="password")
     if senha == "suasenha123":
