@@ -15,7 +15,7 @@ st.markdown("""
     .card-produto { 
         background-color: #ffffff; border: 1px solid #e9ecef; padding: 15px; 
         border-radius: 15px; text-align: center; box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-        position: relative;
+        position: relative; height: 100%;
     }
     .badge-novidade {
         background-color: #25D366; color: white; padding: 5px 12px;
@@ -39,8 +39,16 @@ def carregar_dados():
         except: pass
     return pd.DataFrame(columns=colunas)
 
+def carregar_categorias():
+    caminho = "categorias.csv"
+    if os.path.exists(caminho):
+        return pd.read_csv(caminho)
+    return pd.DataFrame(columns=["categoria", "subcategoria"])
+
+# Inicialização de pastas e arquivos
 if not os.path.exists("images"): os.makedirs("images")
 df = carregar_dados()
+df_cats = carregar_categorias()
 
 # --- CABEÇALHO ---
 st.markdown('<h1 class="titulo-principal">ADRIANO <span class="destaque-verde">DESIGNER</span></h1>', unsafe_allow_html=True)
@@ -53,7 +61,7 @@ if menu_principal == "🛍️ Vitrine":
     if df.empty:
         st.info("Nenhum produto cadastrado.")
     else:
-        st.sidebar.subheader("📂 Categorias")
+        st.sidebar.subheader("📂 Filtros")
         lista_cats = ["Todos os Produtos"] + sorted(df["categoria"].unique().astype(str).tolist())
         cat_sel = st.sidebar.selectbox("Escolha uma Categoria", lista_cats)
         
@@ -86,97 +94,110 @@ if menu_principal == "🛍️ Vitrine":
 else:
     senha = st.text_input("Senha Admin", type="password")
     if senha == "suasenha123":
-        t1, t2, t3, t4 = st.tabs(["➕ Novo Produto", "📝 Editar", "🗑️ Remover", "💾 Backup"])
+        t1, t_cat, t2, t3, t4 = st.tabs(["➕ Novo Produto", "📂 Categorias", "📝 Editar", "🗑️ Remover", "💾 Backup"])
         
-        # Pega o que já existe para sugerir
-        exist_cats = sorted(df["categoria"].unique().astype(str).tolist()) if not df.empty else []
-        exist_subs = sorted(df["subcategoria"].unique().astype(str).tolist()) if not df.empty else []
-
-        with t1:
-            st.write("### Cadastro de Lançamento")
-            
-            with st.form("form_novo_v4", clear_on_submit=True):
-                nome = st.text_input("Nome do Produto")
-                preco = st.number_input("Preço", min_value=0.0)
-                
-                st.write("---")
-                st.write("**Organização (Categoria e Subcategoria)**")
+        # ABA: GERENCIAR CATEGORIAS
+        with t_cat:
+            st.write("### 📂 Configurar Categorias e Subcategorias")
+            with st.form("form_categorias"):
                 c1, c2 = st.columns(2)
-                
-                with c1:
-                    cat_op = st.radio("Categoria:", ["Usar Existente", "Criar Nova"], key="opt_cat")
-                    if cat_op == "Usar Existente":
-                        cat_final = st.selectbox("Selecione:", exist_cats if exist_cats else ["Nenhuma cadastrada"], key="sel_cat")
-                    else:
-                        cat_final = st.text_input("Digite o nome da nova Categoria:", key="in_cat")
-                
-                with c2:
-                    sub_op = st.radio("Subcategoria:", ["Usar Existente", "Criar Nova"], key="opt_sub")
-                    if sub_op == "Usar Existente":
-                        sub_final = st.selectbox("Selecione:", exist_subs if exist_subs else ["Nenhuma cadastrada"], key="sel_sub")
-                    else:
-                        sub_final = st.text_input("Digite o nome da nova Subcategoria:", key="in_sub")
-                
-                st.write("---")
-                destaque = st.checkbox("Destaque: Marcar como NOVIDADE (topo da vitrine)")
-                desc = st.text_area("Descrição do Produto")
-                foto = st.file_uploader("Foto Principal", type=['jpg', 'png', 'jpeg'])
-                
-                btn_salvar = st.form_submit_button("PUBLICAR PRODUTO")
-                
-                if btn_salvar:
-                    if nome and foto and cat_final and cat_final != "Nenhuma cadastrada":
-                        nome_arq = f"{datetime.now().timestamp()}_{foto.name}".replace(" ","_")
-                        with open(f"images/{nome_arq}", "wb") as f:
-                            f.write(foto.getbuffer())
-                        
-                        novo = pd.DataFrame([{"nome": nome, "preco": preco, "imagens": nome_arq, 
-                                             "categoria": cat_final, "subcategoria": sub_final, 
-                                             "descricao": desc, "novidade": destaque}])
-                        df = pd.concat([df, novo], ignore_index=True)
-                        df.to_csv("produtos.csv", index=False)
-                        st.success(f"✅ Produto '{nome}' cadastrado com sucesso!")
+                nova_cat = c1.text_input("Nome da Categoria (ex: Camisetas)")
+                nova_sub = c2.text_input("Nome da Subcategoria (ex: Manga Longa)")
+                if st.form_submit_button("ADICIONAR À LISTA"):
+                    if nova_cat and nova_sub:
+                        nova_linha = pd.DataFrame([{"categoria": nova_cat, "subcategoria": nova_sub}])
+                        df_cats = pd.concat([df_cats, nova_linha], ignore_index=True).drop_duplicates()
+                        df_cats.to_csv("categorias.csv", index=False)
+                        st.success("Categoria salva!")
                         st.rerun()
-                    else:
-                        st.error("Erro: Preencha o Nome, Foto e defina uma Categoria válida!")
+            
+            st.divider()
+            st.write("#### Categorias Cadastradas")
+            st.dataframe(df_cats, use_container_width=True)
+            if st.button("Apagar todas as Categorias"):
+                if os.path.exists("categorias.csv"): os.remove("categorias.csv")
+                st.rerun()
 
-        with t2: # EDITAR
+        # ABA: NOVO PRODUTO
+        with t1:
+            if df_cats.empty:
+                st.warning("⚠️ Você precisa cadastrar ao menos uma categoria na aba 'Categorias' antes de adicionar produtos.")
+            else:
+                with st.form("form_novo_v6", clear_on_submit=True):
+                    nome = st.text_input("Nome do Produto")
+                    preco = st.number_input("Preço", min_value=0.0)
+                    
+                    c1, c2 = st.columns(2)
+                    sel_cat = c1.selectbox("Categoria:", df_cats["categoria"].unique())
+                    sel_sub = c2.selectbox("Subcategoria:", df_cats[df_cats["categoria"] == sel_cat]["subcategoria"])
+                    
+                    destaque = st.checkbox("Marcar como NOVIDADE (aparece primeiro)")
+                    desc = st.text_area("Descrição")
+                    foto = st.file_uploader("Imagem do Produto", type=['jpg', 'png', 'jpeg'])
+                    
+                    if st.form_submit_button("CADASTRAR PRODUTO"):
+                        if nome and foto:
+                            nome_arq = f"{datetime.now().timestamp()}_{foto.name}".replace(" ","_")
+                            with open(f"images/{nome_arq}", "wb") as f:
+                                f.write(foto.getbuffer())
+                            
+                            novo = pd.DataFrame([{"nome": nome, "preco": preco, "imagens": nome_arq, 
+                                                 "categoria": sel_cat, "subcategoria": sel_sub, 
+                                                 "descricao": desc, "novidade": destaque}])
+                            df = pd.concat([df, novo], ignore_index=True)
+                            df.to_csv("produtos.csv", index=False)
+                            st.success("Produto cadastrado!")
+                            st.rerun()
+
+        # ABA: EDITAR (Agora com categorias selecionáveis)
+        with t2:
             if not df.empty:
-                st.write("### Editar Produto Existente")
-                escolha_edit = st.selectbox("Qual produto deseja alterar?", df["nome"].tolist())
-                idx = df[df["nome"] == escolha_edit].index[0]
+                escolha = st.selectbox("Selecione o produto para editar:", df["nome"].tolist())
+                idx = df[df["nome"] == escolha].index[0]
                 
-                with st.form("form_edit_v4"):
-                    e_nome = st.text_input("Nome", value=df.at[idx, 'nome'])
-                    e_preco = st.number_input("Preço", value=float(df.at[idx, 'preco']))
-                    e_destaque = st.checkbox("Novidade", value=bool(df.at[idx, 'novidade']))
-                    e_desc = st.text_area("Descrição", value=str(df.at[idx, 'descricao']))
+                with st.form("form_edit_v6"):
+                    enome = st.text_input("Nome", value=df.at[idx, 'nome'])
+                    epreco = st.number_input("Preço", value=float(df.at[idx, 'preco']))
+                    
+                    st.write("---")
+                    # Se não houver categorias cadastradas, usa a do próprio produto
+                    cats_disponiveis = df_cats["categoria"].unique().tolist() if not df_cats.empty else [df.at[idx, 'categoria']]
+                    
+                    ecat = st.selectbox("Categoria:", cats_disponiveis, 
+                                       index=cats_disponiveis.index(df.at[idx, 'categoria']) if df.at[idx, 'categoria'] in cats_disponiveis else 0)
+                    
+                    subs_disponiveis = df_cats[df_cats["categoria"] == ecat]["subcategoria"].tolist() if not df_cats.empty else [df.at[idx, 'subcategoria']]
+                    
+                    esub = st.selectbox("Subcategoria:", subs_disponiveis,
+                                       index=subs_disponiveis.index(df.at[idx, 'subcategoria']) if df.at[idx, 'subcategoria'] in subs_disponiveis else 0)
+                    
+                    st.write("---")
+                    edestaque = st.checkbox("Novidade", value=bool(df.at[idx, 'novidade']))
+                    edesc = st.text_area("Descrição", value=str(df.at[idx, 'descricao']))
                     
                     if st.form_submit_button("SALVAR ALTERAÇÕES"):
-                        df.at[idx, 'nome'] = e_nome
-                        df.at[idx, 'preco'] = e_preco
-                        df.at[idx, 'novidade'] = e_destaque
-                        df.at[idx, 'descricao'] = e_desc
+                        df.at[idx, 'nome'] = enome
+                        df.at[idx, 'preco'] = epreco
+                        df.at[idx, 'categoria'] = ecat
+                        df.at[idx, 'subcategoria'] = esub
+                        df.at[idx, 'novidade'] = edestaque
+                        df.at[idx, 'descricao'] = edesc
                         df.to_csv("produtos.csv", index=False)
-                        st.success("Alterações salvas!")
+                        st.success("Produto atualizado!")
                         st.rerun()
 
-        with t3: # REMOVER
+        # ABA: REMOVER
+        with t3:
             for i, row in df.iterrows():
                 c1, c2 = st.columns([4, 1])
                 c1.write(f"**{row['nome']}** ({row['categoria']} | {row['subcategoria']})")
-                if c2.button("Excluir", key=f"del_v4_{i}"):
+                if c2.button("Excluir", key=f"del_{i}"):
                     df = df.drop(i)
                     df.to_csv("produtos.csv", index=False)
                     st.rerun()
 
-        with t4: # BACKUP
-            st.write("### Backup e Segurança")
+        # ABA: BACKUP
+        with t4:
+            st.write("### Backup dos Dados")
             csv = df.to_csv(index=False).encode('utf-8')
-            st.download_button("📥 BAIXAR MEU BANCO DE DADOS", csv, "backup_adriano.csv", "text/csv")
-            st.divider()
-            up = st.file_uploader("Restaurar via arquivo CSV", type="csv")
-            if st.button("RESTAURAR TUDO") and up:
-                pd.read_csv(up).to_csv("produtos.csv", index=False)
-                st.success("Dados restaurados!")
-                st.rerun()
+            st.download_button("📥 BAIXAR CSV DE PRODUTOS", csv, "produtos_adriano.csv", "text/csv")
