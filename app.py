@@ -132,8 +132,7 @@ if menu_principal == "🛍️ Vitrine":
 else:
     senha = st.text_input("Senha Admin", type="password")
     if senha == "suasenha123":
-        # BACKUP ADICIONADO NOVAMENTE AQUI
-        t1, t2, t3, t4 = st.tabs(["➕ Novo", "📝 Editar", "🗑️ Remover", "💾 Backup"])
+        t1, t2, t3, t4 = st.tabs(["➕ Novo", "📝 Editar", "🗑️ Remover", "💾 Backup e Restauração"])
         
         sugestoes_cat = sorted(df["categoria"].unique().astype(str).tolist()) if not df.empty else []
         sugestoes_sub = sorted(df["subcategoria"].unique().astype(str).tolist()) if not df.empty else []
@@ -182,13 +181,32 @@ else:
                     df.to_csv("produtos.csv", index=False)
                     st.rerun()
 
-        with t4: # BACKUP (REINSTALADO)
-            st.write("### Exportar Dados")
-            st.info("Clique no botão abaixo para baixar a planilha atualizada de todos os seus produtos.")
+        with t4: # BACKUP E RESTAURAÇÃO
+            st.subheader("📥 Exportar Backup")
             csv = df.to_csv(index=False).encode('utf-8')
             st.download_button(
-                label="📥 BAIXAR BACKUP (CSV)",
+                label="BAIXAR PLANILHA ATUAL (CSV)",
                 data=csv,
-                file_name=f"backup_produtos_{datetime.now().strftime('%d_%m_%Y')}.csv",
+                file_name=f"backup_adriano_{datetime.now().strftime('%d_%m_%Y')}.csv",
                 mime="text/csv",
             )
+            
+            st.divider()
+            
+            st.subheader("📤 Restaurar Backup")
+            st.warning("Atenção: Ao restaurar um backup, a lista atual de produtos será substituída pela do arquivo.")
+            arquivo_upload = st.file_uploader("Selecione o arquivo de backup (.csv)", type=["csv"])
+            
+            if arquivo_upload is not None:
+                if st.button("CONFIRMAR RESTAURAÇÃO"):
+                    try:
+                        novo_df = pd.read_csv(arquivo_upload)
+                        # Validação simples de colunas
+                        if "nome" in novo_df.columns and "preco" in novo_df.columns:
+                            novo_df.to_csv("produtos.csv", index=False)
+                            st.success("✅ Base de dados restaurada com sucesso! Reiniciando...")
+                            st.rerun()
+                        else:
+                            st.error("Erro: O arquivo não parece ser um backup válido da loja.")
+                    except Exception as e:
+                        st.error(f"Erro ao processar o arquivo: {e}")
