@@ -112,7 +112,7 @@ with col_main2:
             <div class="text-container">
                 <p class="loja-online-do">LOJA ONLINE DO:</p>
                 <h1 class="titulo-principal">ADRIANO <span class="destaque-verde">DESIGNER</span></h1>
-                <p class="slogan">Estilo que respira, conforto que veste. Algodão premium para o seu dia a dia.</p>
+                <p class="slogan">VESTINDO VOCÊ.</p>
             </div>
         """, unsafe_allow_html=True)
 
