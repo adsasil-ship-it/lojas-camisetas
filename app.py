@@ -10,14 +10,13 @@ st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;700;800&display=swap');
     
-    /* Layout Responsivo para Celular */
+    /* Layout Responsivo para Celular (2 colunas) */
     [data-testid="stHorizontalBlock"] {
         display: flex;
         flex-wrap: wrap;
         gap: 10px;
     }
     
-    /* Força 2 colunas em telas pequenas (mobile) */
     @media (max-width: 640px) {
         [data-testid="stHorizontalBlock"] > div {
             width: calc(50% - 10px) !important;
@@ -43,18 +42,14 @@ st.markdown("""
         height: 100%;
         display: flex;
         flex-direction: column;
-        justify-content: space-between;
     }
     
     .badge-lancamento { background-color: #25D366; color: white; padding: 2px 6px; border-radius: 4px; font-size: 9px; font-weight: bold; position: absolute; top: 5px; left: 5px; z-index: 10; }
     .badge-promocao { background-color: #A020F0; color: white; padding: 2px 6px; border-radius: 4px; font-size: 9px; font-weight: bold; position: absolute; top: 5px; right: 5px; z-index: 10; }
     
-    .preco-antigo { text-decoration: line-through; color: #888; font-size: 12px; }
-    .preco-novo { font-size: 18px; font-weight: 800; color: #1a1c23; margin: 5px 0; }
+    .preco-antigo { text-decoration: line-through; color: #888; font-size: 11px; }
+    .preco-novo { font-size: 16px; font-weight: 800; color: #1a1c23; margin: 2px 0; }
     .views-badge { font-size: 9px; color: #999; margin-top: 5px; }
-    
-    /* Ajuste de fonte para botões no mobile */
-    .stButton button { width: 100%; font-size: 12px !important; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -76,7 +71,7 @@ if not os.path.exists("images"): os.makedirs("images")
 df = carregar_dados()
 
 # --- CABEÇALHO ---
-col_logo, col_texto = st.columns([1, 3])
+col_logo, col_texto = st.columns([1, 4])
 with col_logo:
     if os.path.exists("logo.png"): st.image("logo.png", width=70) 
 with col_texto:
@@ -88,7 +83,6 @@ menu_principal = st.sidebar.radio("Navegar", ["🛍️ Vitrine", "⚙️ Painel 
 if menu_principal == "🛍️ Vitrine":
     ids_lancamento = df.tail(3)["id"].tolist() if not df.empty else []
     
-    st.divider()
     c1, c2 = st.columns(2)
     with c1:
         cat_sel = st.selectbox("CATEGORIA", ["Todos"] + sorted(df["categoria"].unique().astype(str).tolist()))
@@ -101,85 +95,94 @@ if menu_principal == "🛍️ Vitrine":
     if df_vitrine.empty:
         st.info("Nenhum produto encontrado.")
     else:
-        # Grid de produtos
-        cols = st.columns(2 if len(df_vitrine) > 1 else 1)
+        cols = st.columns(2)
         for i, (idx, row) in enumerate(df_vitrine.iterrows()):
             df.at[idx, "visualizacoes"] += 1
             with cols[i % 2]:
                 st.markdown('<div class="card-produto">', unsafe_allow_html=True)
-                
-                # Selos
-                if row['id'] in ids_lancamento:
-                    st.markdown('<div class="badge-lancamento">NOVO</div>', unsafe_allow_html=True)
-                if row['promocao']:
-                    st.markdown('<div class="badge-promocao">15% OFF</div>', unsafe_allow_html=True)
+                if row['id'] in ids_lancamento: st.markdown('<div class="badge-lancamento">NOVO</div>', unsafe_allow_html=True)
+                if row['promocao']: st.markdown('<div class="badge-promocao">15% OFF</div>', unsafe_allow_html=True)
 
                 if os.path.exists(f"images/{row['imagens']}"):
                     st.image(f"images/{row['imagens']}", use_container_width=True)
                 
                 st.markdown(f"**{row['nome']}**")
                 
-                # Preços
                 if row['promocao']:
-                    valor_desc = float(row['preco_venda']) * 0.85
+                    v_desc = float(row['preco_venda']) * 0.85
                     st.markdown(f'<span class="preco-antigo">R$ {float(row["preco_venda"]):.2f}</span>', unsafe_allow_html=True)
-                    st.markdown(f'<p class="preco-novo">R$ {valor_desc:.2f}</p>', unsafe_allow_html=True)
+                    st.markdown(f'<p class="preco-novo">R$ {v_desc:.2f}</p>', unsafe_allow_html=True)
                 else:
                     st.markdown(f'<p class="preco-novo">R$ {float(row["preco_venda"]):.2f}</p>', unsafe_allow_html=True)
                 
-                # DESCRIÇÃO EXPANSÍVEL
-                with st.expander("Ver detalhes"):
+                with st.expander("Detalhes"):
                     st.write(row['descricao'])
                 
-                st.link_button("PEDIR", f"https://wa.me/5585998351874?text=Quero saber mais sobre: {row['nome']}")
+                st.link_button("PEDIR", f"https://wa.me/5585998351874?text=Tenho interesse em: {row['nome']}")
                 st.markdown(f'<span class="views-badge">👁️ {int(row["visualizacoes"])}</span>', unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)
         df.to_csv("produtos.csv", index=False)
 
-# --- ADMIN --- (Código anterior mantido com as correções de remoção e edição)
+# --- ADMIN ---
 else:
     senha = st.text_input("Senha Admin", type="password")
     if senha == "suasenha123":
-        t1, t2, t3 = st.tabs(["➕ Cadastro", "📝 Editar", "🗑️ Remover"])
+        t1, t2, t3, t4 = st.tabs(["➕ Cadastro", "📝 Editar", "🗑️ Remover", "💾 Backup"])
         
-        with t1: # Cadastro igual ao anterior com campo 'promocao'
+        with t1:
             with st.form("f_novo", clear_on_submit=True):
                 n = st.text_input("Nome")
                 d = st.text_area("Descrição")
-                pv = st.number_input("Venda")
-                pc = st.number_input("Custo")
+                col1, col2 = st.columns(2)
+                pv = col1.number_input("Valor de Venda")
+                pc = col2.number_input("Valor de Custo")
                 c = st.text_input("Categoria")
                 s = st.text_input("Subcategoria")
                 img = st.file_uploader("Imagem")
-                promo = st.checkbox("Ativar Promoção")
-                if st.form_submit_button("Cadastrar"):
+                promo = st.checkbox("Ativar Promoção (Lilás + 15% OFF)")
+                if st.form_submit_button("CADASTRAR"):
                     if n and img:
-                        nome_img = f"{datetime.now().timestamp()}_{img.name}"
-                        with open(f"images/{nome_img}", "wb") as f: f.write(img.getbuffer())
-                        novo = pd.DataFrame([{"id": int(datetime.now().timestamp()), "nome": n, "preco_venda": pv, "preco_custo": pc, "imagens": nome_img, "categoria": c, "subcategoria": s, "descricao": d, "visualizacoes": 0, "promocao": promo}])
+                        n_img = f"{datetime.now().timestamp()}_{img.name}"
+                        with open(f"images/{n_img}", "wb") as f: f.write(img.getbuffer())
+                        novo = pd.DataFrame([{"id": int(datetime.now().timestamp()), "nome": n, "preco_venda": pv, "preco_custo": pc, "imagens": n_img, "categoria": c, "subcategoria": s, "descricao": d, "visualizacoes": 0, "promocao": promo}])
                         df = pd.concat([df, novo], ignore_index=True)
                         df.to_csv("produtos.csv", index=False)
+                        st.success("Cadastrado com sucesso!")
                         st.rerun()
 
-        with t2: # Editar completo
+        with t2:
             if not df.empty:
-                sel = st.selectbox("Editar:", df["nome"].tolist())
-                idx = df[df["nome"] == sel].index[0]
+                sel = st.selectbox("Selecione para editar:", df["nome"].tolist())
+                idx_e = df[df["nome"] == sel].index[0]
                 with st.form("f_edit"):
-                    en = st.text_input("Nome", value=df.at[idx, 'nome'])
-                    ed = st.text_area("Descrição", value=df.at[idx, 'descricao'])
-                    ev = st.number_input("Preço", value=float(df.at[idx, 'preco_venda']))
-                    ep = st.checkbox("Promoção", value=bool(df.at[idx, 'promocao']))
-                    if st.form_submit_button("Atualizar"):
-                        df.at[idx, 'nome'], df.at[idx, 'descricao'], df.at[idx, 'preco_venda'], df.at[idx, 'promocao'] = en, ed, ev, ep
+                    en = st.text_input("Nome", value=df.at[idx_e, 'nome'])
+                    ed = st.text_area("Descrição", value=df.at[idx_e, 'descricao'])
+                    ev = st.number_input("Preço Venda", value=float(df.at[idx_e, 'preco_venda']))
+                    ec = st.number_input("Preço Custo", value=float(df.at[idx_e, 'preco_custo']))
+                    cat_e = st.text_input("Categoria", value=df.at[idx_e, 'categoria'])
+                    sub_e = st.text_input("Subcategoria", value=df.at[idx_e, 'subcategoria'])
+                    ep = st.checkbox("Promoção Ativa", value=bool(df.at[idx_e, 'promocao']))
+                    if st.form_submit_button("ATUALIZAR"):
+                        df.loc[idx_e, ['nome', 'descricao', 'preco_venda', 'preco_custo', 'categoria', 'subcategoria', 'promocao']] = [en, ed, ev, ec, cat_e, sub_e, ep]
                         df.to_csv("produtos.csv", index=False)
+                        st.success("Atualizado!")
                         st.rerun()
 
-        with t3: # Remover
+        with t3:
             for i, row in df.iterrows():
-                c1, c2 = st.columns([3, 1])
-                c1.write(row['nome'])
-                if c2.button("❌", key=f"del_{row['id']}"):
+                c_a, c_b = st.columns([4, 1])
+                c_a.write(f"ID: {row['id']} | **{row['nome']}**")
+                if c_b.button("❌", key=f"del_{row['id']}"):
                     df = df.drop(i)
                     df.to_csv("produtos.csv", index=False)
                     st.rerun()
+
+        with t4:
+            st.subheader("Gerenciar Dados")
+            st.download_button("BAIXAR BACKUP (CSV)", df.to_csv(index=False).encode('utf-8'), "backup_loja.csv")
+            st.divider()
+            arq = st.file_uploader("Restaurar via arquivo CSV", type="csv")
+            if arq and st.button("Confirmar Restauração"):
+                pd.read_csv(arq).to_csv("produtos.csv", index=False)
+                st.success("Dados Restaurados!")
+                st.rerun()
