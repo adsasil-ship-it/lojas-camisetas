@@ -12,19 +12,11 @@ st.markdown("""
     
     .stApp { background-color: #f8f9fa; }
     
-    /* Container que agrupa Logo e Nome */
-    .brand-container {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 15px; /* Espaço entre a logo e o texto */
-        margin-bottom: 0px;
-    }
-
     .text-box {
         display: flex;
         flex-direction: column;
         align-items: flex-start;
+        justify-content: center;
     }
     
     .loja-online-do {
@@ -82,16 +74,14 @@ def carregar_dados():
 if not os.path.exists("images"): os.makedirs("images")
 df = carregar_dados()
 
-# --- CABEÇALHO COMPACTO (LOGO À ESQUERDA) ---
-# Usamos colunas para centralizar o bloco inteiro na tela
+# --- CABEÇALHO (LOGO À ESQUERDA) ---
 _, col_header, _ = st.columns([1, 4, 1])
 
 with col_header:
-    col_logo, col_texto = st.columns([1, 4])
+    col_logo, col_texto = st.columns([1, 5])
     with col_logo:
         if os.path.exists("logo.png"):
-            # Logo pequena e alinhada
-            st.image("logo.png", width=80) 
+            st.image("logo.png", width=85) 
     with col_texto:
         st.markdown("""
             <div class="text-box">
@@ -103,7 +93,6 @@ with col_header:
 # --- MENU DE ACESSIBILIDADE ---
 st.markdown('<p class="search-label">PROCURE SEU ESTILO AQUI.</p>', unsafe_allow_html=True)
 
-# Filtros centrais
 c1, c2 = st.columns(2)
 with c1:
     cats_existentes = ["Todos os Produtos"] + sorted(df["categoria"].unique().astype(str).tolist())
@@ -119,13 +108,13 @@ if sub_sel != "Todas as Subcategorias":
 
 st.divider()
 
-# --- NAVEGAÇÃO LATERAL ---
+# --- NAVEGAÇÃO ---
 menu_principal = st.sidebar.radio("Navegar", ["🛍️ Vitrine", "⚙️ Painel Admin"])
 
 # --- VITRINE ---
 if menu_principal == "🛍️ Vitrine":
     if df.empty:
-        st.info("Nenhum produto disponível.")
+        st.info("Nenhum produto cadastrado.")
     else:
         cols = st.columns(3)
         for i, (idx, row) in enumerate(df_f.iterrows()):
@@ -136,29 +125,30 @@ if menu_principal == "🛍️ Vitrine":
                 st.write(f"**{row['nome']}**")
                 st.caption(f"{row['categoria']} | {row['subcategoria']}")
                 st.write(f"### R$ {float(row['preco']):.2f}")
-                st.link_button("VER NO WHATSAPP", f"https://wa.me/5585998351874?text=Olá Adriano! Vi o produto {row['nome']}")
+                st.link_button("WHATSAPP", f"https://wa.me/5585998351874?text=Olá Adriano! Vi o produto {row['nome']}")
                 st.markdown('</div>', unsafe_allow_html=True)
 
 # --- ADMIN ---
 else:
     senha = st.text_input("Senha Admin", type="password")
     if senha == "suasenha123":
-        t1, t2, t3 = st.tabs(["➕ Novo", "📝 Editar", "🗑️ Remover"])
+        # BACKUP ADICIONADO NOVAMENTE AQUI
+        t1, t2, t3, t4 = st.tabs(["➕ Novo", "📝 Editar", "🗑️ Remover", "💾 Backup"])
         
         sugestoes_cat = sorted(df["categoria"].unique().astype(str).tolist()) if not df.empty else []
         sugestoes_sub = sorted(df["subcategoria"].unique().astype(str).tolist()) if not df.empty else []
 
-        with t1:
+        with t1: # CADASTRO
             with st.form("form_novo", clear_on_submit=True):
-                nome = st.text_input("Nome")
+                nome = st.text_input("Nome do Produto")
                 preco = st.number_input("Preço", min_value=0.0)
-                col_a, col_b = st.columns(2)
-                with col_a:
+                ca, cb = st.columns(2)
+                with ca:
                     cat_op = st.selectbox("Categoria", ["+ Nova"] + sugestoes_cat)
-                    cat_f = st.text_input("Qual nome da categoria?") if cat_op == "+ Nova" else cat_op
-                with col_b:
+                    cat_f = st.text_input("Nome da nova categoria") if cat_op == "+ Nova" else cat_op
+                with cb:
                     sub_op = st.selectbox("Subcategoria", ["+ Nova"] + sugestoes_sub)
-                    sub_f = st.text_input("Qual nome da subcategoria?") if sub_op == "+ Nova" else sub_op
+                    sub_f = st.text_input("Nome da nova subcategoria") if sub_op == "+ Nova" else sub_op
                 foto = st.file_uploader("Imagem", type=['jpg', 'png', 'jpeg'])
                 if st.form_submit_button("CADASTRAR"):
                     if nome and foto and cat_f:
@@ -167,22 +157,38 @@ else:
                         novo = pd.DataFrame([{"nome": nome, "preco": preco, "imagens": nome_arq, "categoria": cat_f, "subcategoria": sub_f}])
                         df = pd.concat([df, novo], ignore_index=True)
                         df.to_csv("produtos.csv", index=False)
+                        st.success("Cadastrado!")
                         st.rerun()
 
         with t2: # EDITAR
             if not df.empty:
-                escolha = st.selectbox("Editar:", df["nome"].tolist())
+                escolha = st.selectbox("Escolha o produto:", df["nome"].tolist())
                 idx = df[df["nome"] == escolha].index[0]
                 with st.form("f_edit"):
-                    df.at[idx, 'nome'] = st.text_input("Nome", value=df.at[idx, 'nome'])
-                    df.at[idx, 'preco'] = st.number_input("Preço", value=float(df.at[idx, 'preco']))
-                    if st.form_submit_button("SALVAR"):
+                    enome = st.text_input("Nome", value=df.at[idx, 'nome'])
+                    epreco = st.number_input("Preço", value=float(df.at[idx, 'preco']))
+                    if st.form_submit_button("SALVAR ALTERAÇÃO"):
+                        df.at[idx, 'nome'], df.at[idx, 'preco'] = enome, epreco
                         df.to_csv("produtos.csv", index=False)
+                        st.success("Atualizado!")
                         st.rerun()
 
         with t3: # REMOVER
             for i, row in df.iterrows():
-                if st.button(f"Remover {row['nome']}", key=f"del_{i}"):
+                c_del1, c_del2 = st.columns([4,1])
+                c_del1.write(f"**{row['nome']}**")
+                if c_del2.button("Excluir", key=f"del_{i}"):
                     df = df.drop(i)
                     df.to_csv("produtos.csv", index=False)
                     st.rerun()
+
+        with t4: # BACKUP (REINSTALADO)
+            st.write("### Exportar Dados")
+            st.info("Clique no botão abaixo para baixar a planilha atualizada de todos os seus produtos.")
+            csv = df.to_csv(index=False).encode('utf-8')
+            st.download_button(
+                label="📥 BAIXAR BACKUP (CSV)",
+                data=csv,
+                file_name=f"backup_produtos_{datetime.now().strftime('%d_%m_%Y')}.csv",
+                mime="text/csv",
+            )
