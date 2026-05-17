@@ -37,12 +37,15 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# 2. FUNÇÕES DE DADOS
+# 2. FUNÇÕES DE DADOS CORRIGIDA
 def carregar_dados():
     caminho = "produtos.csv"
     if os.path.exists(caminho):
         try:
             df = pd.read_csv(caminho)
+            # CORREÇÃO: Se o banco antigo usava 'images', renomeia para 'imagens'
+            if "images" in df.columns and "imagens" not in df.columns:
+                df = df.rename(columns={"images": "imagens"})
             if "imagens" not in df.columns:
                 df["imagens"] = ""
             return df
@@ -91,12 +94,12 @@ if menu == "🛍️ Vitrine":
                 if row.get('promocao'): 
                     st.markdown('<div class="badge-promo">15% OFF</div>', unsafe_allow_html=True)
                 
-                # Lógica para Múltiplas Imagens
+                # Tratamento seguro para strings de imagem vazias ou nulas
                 img_data = str(row.get('imagens', ""))
-                if img_data and img_data != "nan":
+                if img_data and img_data.strip() != "" and img_data != "nan":
                     lista_imgs = img_data.split(";")
-                    # Mostra a primeira imagem como principal
-                    st.image(f"images/{lista_imgs[0]}", use_container_width=True)
+                    if lista_imgs[0] and os.path.exists(f"images/{lista_imgs[0]}"):
+                        st.image(f"images/{lista_imgs[0]}", use_container_width=True)
                 
                 st.markdown(f"**{row['nome']}**")
                 
@@ -109,12 +112,12 @@ if menu == "🛍️ Vitrine":
                 
                 with st.expander("Ver Detalhes"): 
                     st.write(row['descricao'])
-                    # Se houver mais fotos, mostra aqui dentro
-                    if img_data and ";" in img_data:
+                    if img_data and ";" in img_data and img_data != "nan":
                         st.write("---")
                         st.write("Mais fotos:")
                         for extra_img in lista_imgs:
-                            st.image(f"images/{extra_img}", width=150)
+                            if os.path.exists(f"images/{extra_img}"):
+                                st.image(f"images/{extra_img}", width=150)
                 
                 st.link_button("PEDIR", f"https://wa.me/5585998351874?text=Interesse: {row['nome']}")
                 st.markdown(f'<span class="views-counter">👁️ {int(df.at[idx, "visualizacoes"])}</span>', unsafe_allow_html=True)
@@ -160,19 +163,18 @@ else:
                 
                 with st.form("edit"):
                     st.write(f"Editando ID: {df.at[idx_e, 'id']}")
-                    en = st.text_input("Nome", value=df.at[idx_e, 'nome'])
-                    ed = st.text_area("Descrição", value=df.at[idx_e, 'descricao'])
+                    en = st.text_input("Nome", value=str(df.at[idx_e, 'nome']))
+                    ed = st.text_area("Descrição", value=str(df.at[idx_e, 'descricao']))
                     col1, col2 = st.columns(2)
                     ev = col1.number_input("Preço Venda", value=float(df.at[idx_e, 'preco_venda']))
                     ec = col2.number_input("Preço Custo", value=float(df.at[idx_e, 'preco_custo']))
-                    ect = st.text_input("Categoria", value=df.at[idx_e, 'categoria'])
+                    ect = st.text_input("Categoria", value=str(df.at[idx_e, 'categoria']))
                     ep = st.checkbox("Promoção", value=bool(df.at[idx_e, 'promocao']))
                     
-                    st.warning("Se selecionar novas imagens, as antigas deste produto serão ignoradas.")
+                    st.warning("Se selecionar novas imagens, as antigas deste produto serão substituídas.")
                     eim = st.file_uploader("Substituir Imagens", accept_multiple_files=True)
                     
                     if st.form_submit_button("ATUALIZAR TUDO"):
-                        # Atualiza campos de texto e números
                         df.at[idx_e, 'nome'] = en
                         df.at[idx_e, 'descricao'] = ed
                         df.at[idx_e, 'preco_venda'] = ev
@@ -180,7 +182,6 @@ else:
                         df.at[idx_e, 'categoria'] = ect
                         df.at[idx_e, 'promocao'] = ep
                         
-                        # Atualiza imagens se novas forem enviadas
                         if eim:
                             novos_nomes = []
                             for file in eim:
